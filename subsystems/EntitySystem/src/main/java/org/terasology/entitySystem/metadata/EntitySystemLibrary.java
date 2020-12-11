@@ -16,8 +16,6 @@
 
 package org.terasology.entitySystem.metadata;
 
-import org.terasology.context.Context;
-import org.terasology.engine.module.ModuleManager;
 import org.terasology.module.ModuleEnvironment;
 import org.terasology.persistence.typeHandling.TypeHandlerLibrary;
 import org.terasology.reflection.copy.CopyStrategyLibrary;
@@ -33,15 +31,10 @@ public class EntitySystemLibrary {
     private final ComponentLibrary componentLibrary;
     private final EventLibrary eventLibrary;
 
-    public EntitySystemLibrary(Context context, TypeHandlerLibrary typeHandlerLibrary) {
-        // NOTE: Work-around to fix tests
-        ModuleManager manager = context.get(ModuleManager.class);
-        ModuleEnvironment environment = null;
-        if (manager != null) {
-            environment = manager.getEnvironment();
-        }
-        ReflectFactory reflectFactory = context.get(ReflectFactory.class);
-        CopyStrategyLibrary copyStrategyLibrary = context.get(CopyStrategyLibrary.class);
+    public EntitySystemLibrary(ModuleEnvironment environment,
+                               TypeHandlerLibrary typeHandlerLibrary,
+                               ReflectFactory reflectFactory,
+                               CopyStrategyLibrary copyStrategyLibrary) {
 
         this.typeHandlerLibrary = typeHandlerLibrary;
         this.componentLibrary = new ComponentLibrary(environment, reflectFactory, copyStrategyLibrary);

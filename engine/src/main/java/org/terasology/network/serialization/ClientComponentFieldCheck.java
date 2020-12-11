@@ -16,28 +16,30 @@
 
 package org.terasology.network.serialization;
 
+import org.terasology.entitySystem.Component;
+import org.terasology.entitySystem.metadata.ReplicatedFieldStore;
+import org.terasology.entitySystem.metadata.extandable.ExtendableFieldMetadata;
+import org.terasology.persistence.serializers.FieldSerializeCheck;
 import org.terasology.reflection.metadata.ClassMetadata;
 import org.terasology.reflection.metadata.FieldMetadata;
-import org.terasology.entitySystem.Component;
-import org.terasology.entitySystem.metadata.ReplicatedFieldMetadata;
-import org.terasology.persistence.serializers.FieldSerializeCheck;
 
 /**
  * Determines which fields should be serialized and deserialized by the client.
- *
  */
-public class ClientComponentFieldCheck implements FieldSerializeCheck<Component> {
-
+public class ClientComponentFieldCheck implements FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,
+        Component> {
 
     @Override
-    public boolean shouldSerializeField(ReplicatedFieldMetadata<?, ?> field, Component object) {
+    public boolean shouldSerializeField(ExtendableFieldMetadata<?, Component> field, Component object) {
         return shouldSerializeField(field, object, false);
     }
 
     @Override
-    public boolean shouldSerializeField(ReplicatedFieldMetadata<?, ?> field, Component component, boolean componentInitial) {
+    public boolean shouldSerializeField(ExtendableFieldMetadata<?, Component> field, Component component,
+                                        boolean componentInitial) {
         // Clients only send fields that are replicated from the owner
-        return field.isReplicated() && field.getReplicationInfo().value().isReplicateFromOwner();
+        ReplicatedFieldStore replicatedFieldStore = field.getStore(ReplicatedFieldStore.class);
+        return replicatedFieldStore.isReplicated() && replicatedFieldStore.getReplicationInfo().value().isReplicateFromOwner();
     }
 
     @Override

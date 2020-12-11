@@ -17,7 +17,6 @@ package org.terasology.entitySystem.prefab.internal;
 
 import com.google.common.base.Strings;
 import org.terasology.assets.management.AssetManager;
-import org.terasology.context.Context;
 import org.terasology.entitySystem.Component;
 import org.terasology.entitySystem.prefab.Prefab;
 import org.terasology.entitySystem.prefab.PrefabManager;
@@ -35,8 +34,8 @@ public class PojoPrefabManager implements PrefabManager {
 
     private final AssetManager assetManager;
 
-    public PojoPrefabManager(Context context) {
-        this.assetManager = context.get(AssetManager.class);
+    public PojoPrefabManager(AssetManager assetManager) {
+        this.assetManager = assetManager;
     }
 
 

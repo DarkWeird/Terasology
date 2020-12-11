@@ -4,9 +4,12 @@
 package org.terasology.engine.bootstrap;
 
 import org.terasology.assets.ResourceUrn;
+import org.terasology.assets.management.AssetManager;
 import org.terasology.audio.events.PlaySoundEvent;
 import org.terasology.context.Context;
 import org.terasology.engine.SimpleUri;
+import org.terasology.engine.bootstrap.eventSystem.NetworkEventSystemDecorator;
+import org.terasology.engine.bootstrap.eventSystem.RecordingEventSystemDecorator;
 import org.terasology.engine.module.ModuleManager;
 import org.terasology.entitySystem.Component;
 import org.terasology.entitySystem.entity.EntityManager;
@@ -67,10 +70,11 @@ public final class EntitySystemSetupUtil {
 
         ModuleManager moduleManager = context.get(ModuleManager.class);
         TypeRegistry typeRegistry = context.get(TypeRegistry.class);
-        TypeHandlerLibrary typeHandlerLibrary = TypeHandlerLibraryImpl.forModuleEnvironment(moduleManager, typeRegistry);
+        TypeHandlerLibrary typeHandlerLibrary = TypeHandlerLibraryImpl.forModuleEnvironment(moduleManager,
+                typeRegistry);
         context.put(TypeHandlerLibrary.class, typeHandlerLibrary);
 
-        EntitySystemLibrary library = new EntitySystemLibrary(context, typeHandlerLibrary);
+        EntitySystemLibrary library = new EntitySystemLibrary(moduleManager.getEnvironment(), typeHandlerLibrary, reflectFactory, copyStrategyLibrary);
         context.put(EntitySystemLibrary.class, library);
         context.put(ComponentLibrary.class, library.getComponentLibrary());
         context.put(EventLibrary.class, library.getEventLibrary());
@@ -112,7 +116,7 @@ public final class EntitySystemSetupUtil {
         entityManager.setTypeSerializerLibrary(typeHandlerLibrary);
 
         // Prefab Manager
-        PrefabManager prefabManager = new PojoPrefabManager(context);
+        PrefabManager prefabManager = new PojoPrefabManager(context.get(AssetManager.class));
         entityManager.setPrefabManager(prefabManager);
         context.put(PrefabManager.class, prefabManager);
 
@@ -122,10 +126,14 @@ public final class EntitySystemSetupUtil {
         //Record and Replay
         RecordAndReplayCurrentStatus recordAndReplayCurrentStatus = context.get(RecordAndReplayCurrentStatus.class);
         RecordAndReplayUtils recordAndReplayUtils = context.get(RecordAndReplayUtils.class);
-        CharacterStateEventPositionMap characterStateEventPositionMap = context.get(CharacterStateEventPositionMap.class);
-        DirectionAndOriginPosRecorderList directionAndOriginPosRecorderList = context.get(DirectionAndOriginPosRecorderList.class);
+        CharacterStateEventPositionMap characterStateEventPositionMap =
+                context.get(CharacterStateEventPositionMap.class);
+        DirectionAndOriginPosRecorderList directionAndOriginPosRecorderList =
+                context.get(DirectionAndOriginPosRecorderList.class);
         RecordedEventStore recordedEventStore = new RecordedEventStore();
-        RecordAndReplaySerializer recordAndReplaySerializer = new RecordAndReplaySerializer(entityManager, recordedEventStore, recordAndReplayUtils, characterStateEventPositionMap, directionAndOriginPosRecorderList, moduleManager, context.get(TypeRegistry.class));
+        RecordAndReplaySerializer recordAndReplaySerializer = new RecordAndReplaySerializer(entityManager,
+                recordedEventStore, recordAndReplayUtils, characterStateEventPositionMap,
+                directionAndOriginPosRecorderList, moduleManager, context.get(TypeRegistry.class));
         context.put(RecordAndReplaySerializer.class, recordAndReplaySerializer);
 
 
@@ -135,23 +143,35 @@ public final class EntitySystemSetupUtil {
         entityManager.setEventSystem(eventSystem);
         context.put(EventSystem.class, eventSystem);
 
-        // TODO: Review - NodeClassLibrary related to the UI for behaviours. Should not be here and probably not even in the CoreRegistry
+        // TODO: Review - NodeClassLibrary related to the UI for behaviours. Should not be here and probably not even
+        //  in the CoreRegistry
         context.put(OneOfProviderFactory.class, new OneOfProviderFactory());
         registerComponents(library.getComponentLibrary(), environment);
         registerEvents(entityManager.getEventSystem(), environment);
     }
 
-    private static EventSystem createEventSystem(NetworkSystem networkSystem, PojoEntityManager entityManager, EntitySystemLibrary library,
-                                                 RecordedEventStore recordedEventStore, RecordAndReplaySerializer recordAndReplaySerializer,
-                                                 RecordAndReplayUtils recordAndReplayUtils, RecordAndReplayCurrentStatus recordAndReplayCurrentStatus) {
+    private static EventSystem createEventSystem(NetworkSystem networkSystem, PojoEntityManager entityManager,
+                                                 EntitySystemLibrary library,
+                                                 RecordedEventStore recordedEventStore,
+                                                 RecordAndReplaySerializer recordAndReplaySerializer,
+                                                 RecordAndReplayUtils recordAndReplayUtils,
+                                                 RecordAndReplayCurrentStatus recordAndReplayCurrentStatus) {
         EventSystem eventSystem;
         List<Class<?>> selectedClassesToRecord = createSelectedClassesToRecordList();
         if (recordAndReplayCurrentStatus.getStatus() == RecordAndReplayStatus.PREPARING_REPLAY) {
-            eventSystem = new EventSystemReplayImpl(library.getEventLibrary(), networkSystem, entityManager, recordedEventStore,
-                    recordAndReplaySerializer, recordAndReplayUtils, selectedClassesToRecord, recordAndReplayCurrentStatus);
+            eventSystem = new EventSystemReplayImpl(library.getEventLibrary(), networkSystem, entityManager,
+                    recordedEventStore,
+                    recordAndReplaySerializer, recordAndReplayUtils, selectedClassesToRecord,
+                    recordAndReplayCurrentStatus);
         } else {
             EventCatcher eventCatcher = new EventCatcher(selectedClassesToRecord, recordedEventStore);
-            eventSystem = new EventSystemImpl(library.getEventLibrary(), networkSystem, eventCatcher, recordAndReplayCurrentStatus);
+
+            eventSystem =
+                    new NetworkEventSystemDecorator(
+                            new RecordingEventSystemDecorator(
+                                    new EventSystemImpl(networkSystem.getMode().isAuthority()),
+                                    eventCatcher, recordAndReplayCurrentStatus),
+                            networkSystem, library.getEventLibrary());
         }
         return eventSystem;
     }
@@ -160,7 +180,8 @@ public final class EntitySystemSetupUtil {
         for (Class<? extends Component> componentType : environment.getSubtypesOf(Component.class)) {
             if (componentType.getAnnotation(DoNotAutoRegister.class) == null) {
                 String componentName = MetadataUtil.getComponentClassName(componentType);
-                library.register(new ResourceUrn(environment.getModuleProviding(componentType).toString(), componentName), componentType);
+                library.register(new ResourceUrn(environment.getModuleProviding(componentType).toString(),
+                        componentName), componentType);
             }
         }
     }
@@ -168,7 +189,8 @@ public final class EntitySystemSetupUtil {
     private static void registerEvents(EventSystem eventSystem, ModuleEnvironment environment) {
         for (Class<? extends Event> type : environment.getSubtypesOf(Event.class)) {
             if (type.getAnnotation(DoNotAutoRegister.class) == null) {
-                eventSystem.registerEvent(new SimpleUri(environment.getModuleProviding(type), type.getSimpleName()), type);
+                eventSystem.registerEvent(new ResourceUrn(environment.getModuleProviding(type).toString(), type.getSimpleName()),
+                        type);
             }
         }
     }

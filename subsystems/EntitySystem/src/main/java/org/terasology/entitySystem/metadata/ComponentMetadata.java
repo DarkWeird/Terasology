@@ -19,12 +19,10 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.terasology.assets.ResourceUrn;
-import org.terasology.engine.SimpleUri;
 import org.terasology.entitySystem.Component;
+import org.terasology.entitySystem.metadata.extandable.ExtendableClassMetadata;
 import org.terasology.network.Replicate;
-import org.terasology.reflection.copy.CopyStrategy;
 import org.terasology.reflection.copy.CopyStrategyLibrary;
-import org.terasology.reflection.metadata.ClassMetadata;
 import org.terasology.reflection.reflect.InaccessibleFieldException;
 import org.terasology.reflection.reflect.ReflectFactory;
 import org.terasology.world.block.ForceBlockActive;
@@ -38,11 +36,8 @@ import java.util.List;
  * Metadata on a component class and its fields.
  *
  */
-public class ComponentMetadata<T extends Component> extends ClassMetadata<T, ComponentFieldMetadata<T, ?>> {
+public class ComponentMetadata<T extends Component> extends ExtendableClassMetadata<T, ComponentFieldMetadata<T, ?>> {
 
-    private boolean replicated;
-    private boolean replicatedFromOwner;
-    private boolean referenceOwner;
     private boolean forceBlockActive;
     private boolean retainUnalteredOnBlockChange;
     private boolean blockLifecycleEventsRequired;
@@ -56,22 +51,16 @@ public class ComponentMetadata<T extends Component> extends ClassMetadata<T, Com
      * @throws NoSuchMethodException If the component has no default constructor
      */
     public ComponentMetadata(ResourceUrn uri, Class<T> type, ReflectFactory factory, CopyStrategyLibrary copyStrategies) throws NoSuchMethodException {
-        super(uri, type, factory, copyStrategies, Predicates.<Field>alwaysTrue());
-        replicated = type.getAnnotation(Replicate.class) != null;
+        super(uri, type, factory, copyStrategies);
+
         blockLifecycleEventsRequired = type.getAnnotation(RequiresBlockLifecycleEvents.class) != null;
         ForceBlockActive forceBlockActiveAnnotation = type.getAnnotation(ForceBlockActive.class);
         if (forceBlockActiveAnnotation != null) {
             forceBlockActive = true;
             retainUnalteredOnBlockChange = forceBlockActiveAnnotation.retainUnalteredOnBlockChange();
         }
-
         for (ComponentFieldMetadata<T, ?> field : getFields()) {
-            if (field.isReplicated()) {
-                replicated = true;
-                if (field.getReplicationInfo().value().isReplicateFromOwner()) {
-                    replicatedFromOwner = true;
-                }
-            }
+
             if (field.isOwnedReference()) {
                 referenceOwner = true;
             }
@@ -82,28 +71,7 @@ public class ComponentMetadata<T extends Component> extends ClassMetadata<T, Com
 
     @Override
     protected ComponentFieldMetadata<T, ?> createField(Field field, CopyStrategyLibrary copyStrategyLibrary, ReflectFactory factory) throws InaccessibleFieldException {
-        return new ComponentFieldMetadata<>(this, field, copyStrategyLibrary, factory, false);
-    }
-
-    /**
-     * @return Whether this component owns any references
-     */
-    public boolean isReferenceOwner() {
-        return referenceOwner;
-    }
-
-    /**
-     * @return Whether this component replicates any fields from owner to server
-     */
-    public boolean isReplicatedFromOwner() {
-        return replicatedFromOwner;
-    }
-
-    /**
-     * @return Whether this component needs to be replicated
-     */
-    public boolean isReplicated() {
-        return replicated;
+        return new ComponentFieldMetadata<>(this, field, copyStrategyLibrary, factory);
     }
 
     /**

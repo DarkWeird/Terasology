@@ -1,18 +1,5 @@
-/*
- * Copyright 2013 MovingBlocks
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2020 The Terasology Foundation
+// SPDX-License-Identifier: Apache-2.0
 
 package org.terasology.persistence.serializers;
 
@@ -155,7 +142,7 @@ public class EntitySerializer {
      * @param fieldCheck Used to check whether each field in each component of the entity should be serialized.
      * @return The serialized entity
      */
-    public EntityData.Entity serialize(EntityRef entityRef, boolean deltaAgainstPrefab, FieldSerializeCheck<Component> fieldCheck) {
+    public EntityData.Entity serialize(EntityRef entityRef, boolean deltaAgainstPrefab, FieldSerializeCheck<?,Component> fieldCheck) {
         Prefab prefab = entityRef.getParentPrefab();
         if (prefab != null && deltaAgainstPrefab) {
             return serializeEntityDelta(entityRef, prefab, fieldCheck);
@@ -226,13 +213,13 @@ public class EntitySerializer {
             entityInfo.alwaysRelevant = entityData.getAlwaysRelevant();
         }
         switch (entityData.getScope()) {
-            case GLOBAL:
+            case Scope.GLOBAL:
                 entityInfo.scope = EntityScope.GLOBAL;
                 break;
-            case SECTOR:
+            case Scope.SECTOR:
                 entityInfo.scope = EntityScope.SECTOR;
                 break;
-            case CHUNK:
+            case Scope.CHUNK:
                 entityInfo.scope = EntityScope.CHUNK;
                 break;
         }
@@ -267,13 +254,13 @@ public class EntitySerializer {
         if (scope != null) {
             switch (scope) {
                 case GLOBAL:
-                    entity.setScope(GLOBAL);
+                    entity.setScope(Scope.GLOBAL);
                     break;
                 case SECTOR:
-                    entity.setScope(SECTOR);
+                    entity.setScope(Scope.SECTOR);
                     break;
                 case CHUNK:
-                    entity.setScope(CHUNK);
+                    entity.setScope(Scope.CHUNK);
                     break;
 
             }
@@ -309,13 +296,13 @@ public class EntitySerializer {
         if (scope != null) {
             switch (scope) {
                 case GLOBAL:
-                    entity.setScope(GLOBAL);
+                    entity.setScope(Scope.GLOBAL);
                     break;
                 case SECTOR:
-                    entity.setScope(SECTOR);
+                    entity.setScope(Scope.SECTOR);
                     break;
                 case CHUNK:
-                    entity.setScope(CHUNK);
+                    entity.setScope(Scope.CHUNK);
                     break;
             }
         }

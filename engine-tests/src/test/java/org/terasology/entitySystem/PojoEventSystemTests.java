@@ -6,8 +6,9 @@ import com.google.common.collect.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.reflections.Reflections;
+import org.terasology.assets.ResourceUrn;
 import org.terasology.context.internal.ContextImpl;
-import org.terasology.engine.SimpleUri;
+import org.terasology.engine.module.ModuleManager;
 import org.terasology.entitySystem.entity.EntityRef;
 import org.terasology.entitySystem.entity.internal.PojoEntityManager;
 import org.terasology.entitySystem.event.AbstractConsumableEvent;
@@ -28,6 +29,8 @@ import org.terasology.persistence.typeHandling.TypeHandlerLibrary;
 import org.terasology.persistence.typeHandling.TypeHandlerLibraryImpl;
 import org.terasology.recording.EventCatcher;
 import org.terasology.recording.RecordAndReplayCurrentStatus;
+import org.terasology.reflection.copy.CopyStrategyLibrary;
+import org.terasology.reflection.reflect.ReflectFactory;
 import org.terasology.registry.CoreRegistry;
 
 import java.util.List;
@@ -54,16 +57,16 @@ public class PojoEventSystemTests {
         Reflections reflections = new Reflections(getClass().getClassLoader());
         TypeHandlerLibrary serializationLibrary = new TypeHandlerLibraryImpl(reflections);
 
-        EntitySystemLibrary entitySystemLibrary = new EntitySystemLibrary(context, serializationLibrary);
+        EntitySystemLibrary entitySystemLibrary = new EntitySystemLibrary(
+                context.get(ModuleManager.class).getEnvironment(), 
+                serializationLibrary, 
+                context.get(ReflectFactory.class),
+                context.get(CopyStrategyLibrary.class));
         compLibrary = entitySystemLibrary.getComponentLibrary();
         entityManager = new PojoEntityManager();
         entityManager.setComponentLibrary(entitySystemLibrary.getComponentLibrary());
-        entityManager.setPrefabManager(new PojoPrefabManager(context));
-        NetworkSystem networkSystem = mock(NetworkSystem.class);
-        when(networkSystem.getMode()).thenReturn(NetworkMode.NONE);
-        EventCatcher eventCatcher = new EventCatcher(null, null);
-        RecordAndReplayCurrentStatus recordAndReplayCurrentStatus = new RecordAndReplayCurrentStatus();
-        eventSystem = new EventSystemImpl(entitySystemLibrary.getEventLibrary(), networkSystem, eventCatcher, recordAndReplayCurrentStatus);
+        entityManager.setPrefabManager(new PojoPrefabManager(null));
+        eventSystem = new EventSystemImpl(NetworkMode.NONE.isAuthority());
         entityManager.setEventSystem(eventSystem);
         entity = entityManager.create();
     }
@@ -168,7 +171,7 @@ public class PojoEventSystemTests {
     public void testChildEvent() {
         entity.addComponent(new IntegerComponent());
         TestEventHandler handler = new TestEventHandler();
-        eventSystem.registerEvent(new SimpleUri("test:childEvent"), TestChildEvent.class);
+        eventSystem.registerEvent(new ResourceUrn("test:childEvent"), TestChildEvent.class);
         eventSystem.registerEventHandler(handler);
 
         TestChildEvent event = new TestChildEvent();
@@ -181,7 +184,7 @@ public class PojoEventSystemTests {
     public void testChildEventReceivedByUnfilteredHandler() {
         entity.addComponent(new IntegerComponent());
         TestEventHandler handler = new TestEventHandler();
-        eventSystem.registerEvent(new SimpleUri("test:childEvent"), TestChildEvent.class);
+        eventSystem.registerEvent(new ResourceUrn("test:childEvent"), TestChildEvent.class);
         eventSystem.registerEventHandler(handler);
 
         TestChildEvent event = new TestChildEvent();

@@ -32,7 +32,7 @@ import org.terasology.entitySystem.entity.EntityRef;
 import org.terasology.entitySystem.entity.internal.EngineEntityManager;
 import org.terasology.entitySystem.metadata.ComponentLibrary;
 import org.terasology.entitySystem.metadata.ComponentMetadata;
-import org.terasology.entitySystem.metadata.ReplicatedFieldMetadata;
+import org.terasology.entitySystem.metadata.extandable.ExtendableFieldMetadata;
 import org.terasology.entitySystem.prefab.Prefab;
 import org.terasology.persistence.typeHandling.PersistedData;
 import org.terasology.persistence.typeHandling.Serializer;
@@ -79,7 +79,7 @@ public class NetworkEntitySerializer {
         this.idTable = ImmutableBiMap.copyOf(componentIdMapping);
     }
 
-    public EntityData.PackedEntity.Builder serialize(EntityRef entity, boolean deltaAgainstPrefab, FieldSerializeCheck<Component> fieldCheck) {
+    public EntityData.PackedEntity.Builder serialize(EntityRef entity, boolean deltaAgainstPrefab, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,Component> fieldCheck) {
         Prefab prefab = entity.getParentPrefab();
         if (prefab != null && deltaAgainstPrefab) {
             return serializeEntityDelta(entity, prefab, fieldCheck);
@@ -88,7 +88,7 @@ public class NetworkEntitySerializer {
         }
     }
 
-    private EntityData.PackedEntity.Builder serializeEntityFull(EntityRef entityRef, FieldSerializeCheck<Component> fieldCheck) {
+    private EntityData.PackedEntity.Builder serializeEntityFull(EntityRef entityRef, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,Component> fieldCheck) {
         EntityData.PackedEntity.Builder entity = EntityData.PackedEntity.newBuilder();
         ByteString.Output fieldIds = ByteString.newOutput();
         ByteString.Output componentFieldCounts = ByteString.newOutput();
@@ -105,7 +105,7 @@ public class NetworkEntitySerializer {
         return entity;
     }
 
-    private EntityData.PackedEntity.Builder serializeEntityDelta(EntityRef entityRef, Prefab prefab, FieldSerializeCheck<Component> fieldCheck) {
+    private EntityData.PackedEntity.Builder serializeEntityDelta(EntityRef entityRef, Prefab prefab, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,Component> fieldCheck) {
         EntityData.PackedEntity.Builder entity = EntityData.PackedEntity.newBuilder();
         entity.setParentPrefabUri(prefab.getName());
         Set<Class<? extends Component>> presentClasses = Sets.newHashSet();
@@ -138,7 +138,7 @@ public class NetworkEntitySerializer {
         return entity;
     }
 
-    private void serializeComponentDelta(Component oldComponent, Component newComponent, FieldSerializeCheck<Component> fieldCheck,
+    private void serializeComponentDelta(Component oldComponent, Component newComponent, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,Component> fieldCheck,
                                          EntityData.PackedEntity.Builder entityData, ByteString.Output entityFieldIds, ByteString.Output componentFieldCounts,
                                          boolean componentInitial) {
         ComponentMetadata<?> componentMetadata = componentLibrary.getMetadata(oldComponent.getClass());
@@ -149,7 +149,7 @@ public class NetworkEntitySerializer {
 
         byte fieldCount = 0;
         Serializer serializer = typeHandlerLibrary.getSerializerFor(componentMetadata);
-        for (ReplicatedFieldMetadata field : componentMetadata.getFields()) {
+        for (ExtendableFieldMetadata field : componentMetadata.getFields()) {
             if (fieldCheck.shouldSerializeField(field, newComponent, componentInitial)) {
                 Object oldValue = field.getValue(oldComponent);
                 Object newValue = field.getValue(newComponent);
@@ -172,7 +172,7 @@ public class NetworkEntitySerializer {
         }
     }
 
-    private void serializeComponentFull(Component component, boolean ignoreIfNoFields, FieldSerializeCheck<Component> fieldCheck,
+    private void serializeComponentFull(Component component, boolean ignoreIfNoFields, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>,Component> fieldCheck,
                                         EntityData.PackedEntity.Builder entityData, ByteString.Output entityFieldIds, ByteString.Output componentFieldCounts,
                                         boolean componentInitial) {
         ComponentMetadata<?> componentMetadata = componentLibrary.getMetadata(component.getClass());
@@ -183,7 +183,7 @@ public class NetworkEntitySerializer {
 
         Serializer serializer = typeHandlerLibrary.getSerializerFor(componentMetadata);
         byte fieldCount = 0;
-        for (ReplicatedFieldMetadata field : componentMetadata.getFields()) {
+        for (ExtendableFieldMetadata field : componentMetadata.getFields()) {
             if (fieldCheck.shouldSerializeField(field, component, componentInitial)) {
                 PersistedData fieldValue = serializer.serialize(field, component, serializationContext);
                 entityFieldIds.write(field.getId());
@@ -203,7 +203,7 @@ public class NetworkEntitySerializer {
         deserializeOnto(entity, entityData, FieldSerializeCheck.NullCheck.<Component>newInstance());
     }
 
-    public void deserializeOnto(MutableComponentContainer entity, EntityData.PackedEntity entityData, FieldSerializeCheck<Component> fieldCheck) {
+    public void deserializeOnto(MutableComponentContainer entity, EntityData.PackedEntity entityData, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>, Component> fieldCheck) {
         int fieldPos = 0;
         for (int componentIndex = 0; componentIndex < entityData.getComponentIdCount(); ++componentIndex) {
             Integer componentId = entityData.getComponentId(componentIndex);
@@ -228,7 +228,7 @@ public class NetworkEntitySerializer {
             Serializer serializer = typeHandlerLibrary.getSerializerFor(metadata);
             for (int fieldIndex = 0; fieldIndex < UnsignedBytes.toInt(entityData.getComponentFieldCounts().byteAt(componentIndex)); ++fieldIndex) {
                 byte fieldId = entityData.getFieldIds().byteAt(fieldPos);
-                ReplicatedFieldMetadata fieldMetadata = metadata.getField(fieldId);
+                ExtendableFieldMetadata fieldMetadata = metadata.getField(fieldId);
                 if (fieldMetadata != null && fieldCheck.shouldDeserialize(metadata, fieldMetadata)) {
                     logger.trace("Deserializing field {} of component {} as value {}", fieldMetadata, metadata, entityData.getFieldValue(fieldPos));
                     serializer.deserializeOnto(component, fieldMetadata, new ProtobufPersistedData(entityData.getFieldValue(fieldPos)));
@@ -269,7 +269,7 @@ public class NetworkEntitySerializer {
 
 
     public EntityData.PackedEntity serialize(EntityRef entityRef, Set<Class<? extends Component>> added, Set<Class<? extends Component>> changed,
-                                             Set<Class<? extends Component>> removed, FieldSerializeCheck<Component> fieldCheck) {
+                                             Set<Class<? extends Component>> removed, FieldSerializeCheck<ExtendableFieldMetadata<?, Component>, Component> fieldCheck) {
         EntityData.PackedEntity.Builder entity = EntityData.PackedEntity.newBuilder();
 
         ByteString.Output fieldIds = ByteString.newOutput();

@@ -19,22 +19,20 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.terasology.assets.ResourceUrn;
-import org.terasology.context.Context;
-import org.terasology.engine.SimpleUri;
 import org.terasology.entitySystem.Component;
+import org.terasology.entitySystem.metadata.extandable.ExtendableClassLibrary;
 import org.terasology.module.Module;
 import org.terasology.module.ModuleEnvironment;
 import org.terasology.naming.Name;
 import org.terasology.reflection.copy.CopyStrategy;
 import org.terasology.reflection.copy.CopyStrategyLibrary;
-import org.terasology.reflection.metadata.AbstractClassLibrary;
 import org.terasology.reflection.metadata.ClassMetadata;
 import org.terasology.reflection.reflect.ReflectFactory;
 
 /**
  * The library for metadata about components (and their fields).
  */
-public class ComponentLibrary extends AbstractClassLibrary<Component> {
+public class ComponentLibrary extends ExtendableClassLibrary<Component> {
 
     private static final Logger logger = LoggerFactory.getLogger(ComponentLibrary.class);
 

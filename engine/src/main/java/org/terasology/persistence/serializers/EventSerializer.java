@@ -1,18 +1,5 @@
-/*
- * Copyright 2013 MovingBlocks
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2020 The Terasology Foundation
+// SPDX-License-Identifier: Apache-2.0
 
 package org.terasology.persistence.serializers;
 
@@ -25,7 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.terasology.entitySystem.event.Event;
 import org.terasology.entitySystem.metadata.EventLibrary;
 import org.terasology.entitySystem.metadata.EventMetadata;
-import org.terasology.entitySystem.metadata.ReplicatedFieldMetadata;
+import org.terasology.entitySystem.metadata.ReplicatedFieldStore;
+import org.terasology.entitySystem.metadata.extandable.ExtendableFieldMetadata;
 import org.terasology.persistence.typeHandling.DeserializationException;
 import org.terasology.persistence.typeHandling.PersistedDataSerializer;
 import org.terasology.persistence.typeHandling.SerializationException;
@@ -100,12 +88,12 @@ public class EventSerializer {
         Serializer serializer = typeHandlerLibrary.getSerializerFor(eventMetadata);
         for (int i = 0; i < eventData.getFieldIds().size(); ++i) {
             byte fieldId = eventData.getFieldIds().byteAt(i);
-            ReplicatedFieldMetadata<?, ?> fieldInfo = eventMetadata.getField(fieldId);
+            ExtendableFieldMetadata<?,?> fieldInfo = eventMetadata.getField(fieldId);
             if (fieldInfo == null) {
                 logger.error("Unable to serialize field {}, out of bounds", fieldId);
                 continue;
             }
-            if (fieldInfo.isReplicated()) {
+            if (fieldInfo.getStore(ReplicatedFieldStore.class).isReplicated()) {
                 serializer.deserializeOnto(targetEvent, fieldInfo, new ProtobufPersistedData(eventData.getFieldValue(i)));
             }
         }
@@ -131,8 +119,8 @@ public class EventSerializer {
 
         Serializer eventSerializer = typeHandlerLibrary.getSerializerFor(eventMetadata);
         ByteString.Output fieldIds = ByteString.newOutput();
-        for (ReplicatedFieldMetadata field : eventMetadata.getFields()) {
-            if (field.isReplicated()) {
+        for (ExtendableFieldMetadata<?,?> field : eventMetadata.getFields()) {
+            if (field.getStore(ReplicatedFieldStore.class).isReplicated()) {
                 EntityData.Value serializedValue = ((ProtobufPersistedData) eventSerializer.serialize(field, event, persistedDataSerializer)).getValue();
                 if (serializedValue != null) {
                     eventData.addFieldValue(serializedValue);
